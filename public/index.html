@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DOM-PBH Scraper</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      overflow: hidden;
+    }
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 30px;
+      text-align: center;
+    }
+    .header h1 { font-size: 28px; margin-bottom: 8px; }
+    .header p { opacity: 0.9; font-size: 14px; }
+    .controls {
+      padding: 30px;
+      border-bottom: 1px solid #e0e0e0;
+      background: #f9fafb;
+    }
+    .form-group {
+      margin-bottom: 20px;
+    }
+    label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #374151;
+      font-size: 14px;
+    }
+    select {
+      width: 100%;
+      padding: 12px 16px;
+      border: 2px solid #e5e7eb;
+      border-radius: 8px;
+      font-size: 15px;
+      transition: all 0.2s;
+    }
+    select:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+    .btn {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 14px 32px;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      width: 100%;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+    }
+    .btn:active { transform: translateY(0); }
+    .btn:disabled {
+      background: #9ca3af;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #6b7280;
+      display: none;
+    }
+    .loading.active { display: block; }
+    .spinner {
+      border: 3px solid #f3f4f6;
+      border-top: 3px solid #667eea;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .results {
+      padding: 30px;
+      display: none;
+    }
+    .results.active { display: block; }
+    .info-bar {
+      background: #f3f4f6;
+      padding: 16px;
+      border-radius: 8px;
+      margin-bottom: 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .info-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .badge {
+      background: #667eea;
+      color: white;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .atos-list {
+      list-style: none;
+    }
+    .ato-item {
+      padding: 16px;
+      border-left: 4px solid #667eea;
+      background: #f9fafb;
+      margin-bottom: 12px;
+      border-radius: 4px;
+      transition: all 0.2s;
+    }
+    .ato-item:hover {
+      background: #f3f4f6;
+      transform: translateX(4px);
+    }
+    .ato-numero {
+      font-weight: 600;
+      color: #667eea;
+      margin-right: 8px;
+      font-size: 14px;
+    }
+    .ato-texto {
+      color: #374151;
+      font-size: 15px;
+    }
+    .empty {
+      text-align: center;
+      padding: 60px 20px;
+      color: #9ca3af;
+    }
+    .empty-icon {
+      font-size: 64px;
+      margin-bottom: 16px;
+      opacity: 0.5;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>📜 DOM-PBH Scraper</h1>
+      <p>Extração de atos do Diário Oficial do Município de Belo Horizonte</p>
+    </div>
+
+    <div class="controls">
+      <div class="form-group">
+        <label for="orgao">Selecione o Órgão:</label>
+        <select id="orgao">
+          <option value="">Carregando...</option>
+        </select>
+      </div>
+      <button class="btn" onclick="extrair()">🔍 Extrair Atos</button>
+    </div>
+
+    <div class="loading" id="loading">
+      <div class="spinner"></div>
+      <p>Extraindo dados do DOM-PBH...</p>
+    </div>
+
+    <div class="results" id="results">
+      <div class="info-bar">
+        <div class="info-item">
+          <span>📅</span>
+          <strong id="data">-</strong>
+        </div>
+        <div class="info-item">
+          <span class="badge" id="total">0 atos</span>
+        </div>
+      </div>
+      
+      <ul class="atos-list" id="atos"></ul>
+      
+      <div class="empty" id="empty" style="display: none;">
+        <div class="empty-icon">📭</div>
+        <p>Nenhum ato encontrado para este órgão</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Carregar órgãos
+    fetch('/api/orgaos')
+      .then(r => r.json())
+      .then(data => {
+        const select = document.getElementById('orgao');
+        select.innerHTML = data.orgaos.map(o => 
+          `<option value="${o}">${o}</option>`
+        ).join('');
+      });
+
+    async function extrair() {
+      const orgao = document.getElementById('orgao').value;
+      const loading = document.getElementById('loading');
+      const results = document.getElementById('results');
+      const btn = document.querySelector('.btn');
+      
+      loading.classList.add('active');
+      results.classList.remove('active');
+      btn.disabled = true;
+      
+      try {
+        const response = await fetch('/api/scrape', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orgao })
+        });
+        
+        const data = await response.json();
+        
+        if (data.sucesso) {
+          mostrarResultados(data.dados);
+        } else {
+          alert('Erro: ' + data.erro);
+        }
+      } catch (error) {
+        alert('Erro ao extrair dados: ' + error.message);
+      } finally {
+        loading.classList.remove('active');
+        btn.disabled = false;
+      }
+    }
+
+    function mostrarResultados(dados) {
+      document.getElementById('data').textContent = dados.data;
+      document.getElementById('total').textContent = `${dados.total} atos`;
+      
+      const atosList = document.getElementById('atos');
+      const empty = document.getElementById('empty');
+      
+      if (dados.atos.length === 0) {
+        atosList.style.display = 'none';
+        empty.style.display = 'block';
+      } else {
+        atosList.style.display = 'block';
+        empty.style.display = 'none';
+        
+        atosList.innerHTML = dados.atos.map((ato, i) => `
+          <li class="ato-item">
+            <span class="ato-numero">${i + 1}.</span>
+            <span class="ato-texto">${ato}</span>
+          </li>
+        `).join('');
+      }
+      
+      document.getElementById('results').classList.add('active');
+    }
+  </script>
+</body>
+</html>
