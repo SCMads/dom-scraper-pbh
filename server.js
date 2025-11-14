@@ -1,8 +1,6 @@
 const express = require('express');
 const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
-const fs = require('fs');
-const path = require('path');
 
 puppeteer.use(StealthPlugin());
 
@@ -12,7 +10,36 @@ const PORT = process.env.PORT || 3000;
 app.use(express.static('public'));
 app.use(express.json());
 
-// Endpoint para scraping
+// Lista completa de órgãos
+const ORGAOS = [
+  'GP - Gabinete do Prefeito',
+  'PGM - Procuradoria Geral do Município',
+  'CGM - Controladoria Geral do Município',
+  'FPMZB - Fundação de Parques Municipais e Zoobotânica',
+  'SMALOG - Secretaria Municipal de Administração Logística',
+  'SMASA - Superintendência de Limpeza Urbana',
+  'SMASDH - Secretaria Municipal de Assistência Social',
+  'SMCTL - Secretaria Municipal de Cultura e Turismo',
+  'SMDE - Secretaria Municipal de Desenvolvimento Econômico',
+  'SMED - Secretaria Municipal de Educação',
+  'SMFA - Secretaria Municipal de Fazenda',
+  'SMGO - Secretaria Municipal de Governo',
+  'SMMA - Secretaria Municipal de Meio Ambiente',
+  'SMPOG - Secretaria Municipal de Planejamento, Orçamento e Gestão',
+  'SMPU - Secretaria Municipal de Política Urbana',
+  'SMSA - Secretaria Municipal de Saúde',
+  'SMSE - Secretaria Municipal de Segurança',
+  'SMOBI - Secretaria Municipal de Obras e Infraestrutura',
+  'BHTRANS - Empresa de Transportes e Trânsito de Belo Horizonte',
+  'BELOTUR - Empresa Municipal de Turismo de Belo Horizonte',
+  'URBEL - Companhia Urbanizadora e de Habitação de Belo Horizonte',
+  'SUDECAP - Superintendência de Desenvolvimento da Capital'
+];
+
+app.get('/api/orgaos', (req, res) => {
+  res.json({ orgaos: ORGAOS });
+});
+
 app.post('/api/scrape', async (req, res) => {
   const { orgao } = req.body;
   
@@ -22,23 +49,6 @@ app.post('/api/scrape', async (req, res) => {
   } catch (error) {
     res.status(500).json({ sucesso: false, erro: error.message });
   }
-});
-
-// Endpoint para listar órgãos
-app.get('/api/orgaos', async (req, res) => {
-  const orgaos = [
-    'GP - Gabinete do Prefeito',
-    'FPMZB - Fundação de Parques Municipais e Zoobotânica',
-    'SMALOG - Secretaria Municipal de Administração Logística',
-    'SMASDH - Secretaria Municipal de Assistência Social',
-    'SMDE - Secretaria Municipal de Desenvolvimento Econômico',
-    'SMED - Secretaria Municipal de Educação',
-    'SMFA - Secretaria Municipal de Fazenda',
-    'SMSA - Secretaria Municipal de Saúde',
-    'SMOBI - Secretaria Municipal de Obras e Infraestrutura'
-  ];
-  
-  res.json({ orgaos });
 });
 
 async function scrapeOrgao(nomeOrgao) {
@@ -101,5 +111,5 @@ async function scrapeOrgao(nomeOrgao) {
 }
 
 app.listen(PORT, () => {
-  console.log(`\n🚀 DOM Scraper WebApp rodando em http://localhost:${PORT}\n`);
+  console.log(`\n🚀 DOM Scraper rodando em http://localhost:${PORT}\n`);
 });

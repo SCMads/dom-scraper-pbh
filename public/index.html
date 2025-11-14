@@ -13,7 +13,7 @@
       padding: 20px;
     }
     .container {
-      max-width: 1000px;
+      max-width: 1200px;
       margin: 0 auto;
       background: white;
       border-radius: 12px;
@@ -33,25 +33,34 @@
       border-bottom: 1px solid #e0e0e0;
       background: #f9fafb;
     }
-    .form-group {
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
       margin-bottom: 20px;
     }
+    @media (max-width: 768px) {
+      .form-row { grid-template-columns: 1fr; }
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+    }
     label {
-      display: block;
       font-weight: 600;
       margin-bottom: 8px;
       color: #374151;
       font-size: 14px;
     }
-    select {
-      width: 100%;
+    select, input {
       padding: 12px 16px;
       border: 2px solid #e5e7eb;
       border-radius: 8px;
       font-size: 15px;
       transition: all 0.2s;
+      font-family: inherit;
     }
-    select:focus {
+    select:focus, input:focus {
       outline: none;
       border-color: #667eea;
       box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
@@ -67,6 +76,7 @@
       cursor: pointer;
       width: 100%;
       transition: transform 0.2s, box-shadow 0.2s;
+      margin-top: 10px;
     }
     .btn:hover {
       transform: translateY(-2px);
@@ -111,6 +121,8 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
     }
     .info-item {
       display: flex;
@@ -125,6 +137,16 @@
       font-size: 14px;
       font-weight: 600;
     }
+    .filter-info {
+      background: #fef3c7;
+      color: #92400e;
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      font-size: 14px;
+      display: none;
+    }
+    .filter-info.active { display: block; }
     .atos-list {
       list-style: none;
     }
@@ -140,6 +162,10 @@
       background: #f3f4f6;
       transform: translateX(4px);
     }
+    .ato-item.highlight {
+      border-left-color: #fbbf24;
+      background: #fffbeb;
+    }
     .ato-numero {
       font-weight: 600;
       color: #667eea;
@@ -149,6 +175,12 @@
     .ato-texto {
       color: #374151;
       font-size: 15px;
+    }
+    .highlight-text {
+      background: #fef3c7;
+      padding: 2px 4px;
+      border-radius: 3px;
+      font-weight: 600;
     }
     .empty {
       text-align: center;
@@ -160,6 +192,11 @@
       margin-bottom: 16px;
       opacity: 0.5;
     }
+    .help-text {
+      font-size: 13px;
+      color: #6b7280;
+      margin-top: 4px;
+    }
   </style>
 </head>
 <body>
@@ -170,12 +207,22 @@
     </div>
 
     <div class="controls">
-      <div class="form-group">
-        <label for="orgao">Selecione o Órgão:</label>
-        <select id="orgao">
-          <option value="">Carregando...</option>
-        </select>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="orgao">🏛️ Órgão / Secretaria:</label>
+          <select id="orgao">
+            <option value="">Carregando...</option>
+          </select>
+          <span class="help-text">Selecione o órgão municipal</span>
+        </div>
+        
+        <div class="form-group">
+          <label for="keyword">🔍 Palavra-chave (opcional):</label>
+          <input type="text" id="keyword" placeholder="Ex: DECRETO, PORTARIA, LICITAÇÃO...">
+          <span class="help-text">Filtra resultados por palavra-chave</span>
+        </div>
       </div>
+      
       <button class="btn" onclick="extrair()">🔍 Extrair Atos</button>
     </div>
 
@@ -185,7 +232,13 @@
     </div>
 
     <div class="results" id="results">
+      <div class="filter-info" id="filterInfo"></div>
+      
       <div class="info-bar">
+        <div class="info-item">
+          <span>🏛️</span>
+          <strong id="orgaoNome">-</strong>
+        </div>
         <div class="info-item">
           <span>📅</span>
           <strong id="data">-</strong>
@@ -199,12 +252,15 @@
       
       <div class="empty" id="empty" style="display: none;">
         <div class="empty-icon">📭</div>
-        <p>Nenhum ato encontrado para este órgão</p>
+        <p>Nenhum ato encontrado</p>
       </div>
     </div>
   </div>
 
   <script>
+    let todosAtos = [];
+    let orgaoAtual = '';
+
     // Carregar órgãos
     fetch('/api/orgaos')
       .then(r => r.json())
@@ -217,6 +273,7 @@
 
     async function extrair() {
       const orgao = document.getElementById('orgao').value;
+      const keyword = document.getElementById('keyword').value.trim();
       const loading = document.getElementById('loading');
       const results = document.getElementById('results');
       const btn = document.querySelector('.btn');
@@ -235,7 +292,9 @@
         const data = await response.json();
         
         if (data.sucesso) {
-          mostrarResultados(data.dados);
+          todosAtos = data.dados.atos;
+          orgaoAtual = data.dados.orgao;
+          mostrarResultados(data.dados, keyword);
         } else {
           alert('Erro: ' + data.erro);
         }
@@ -247,30 +306,65 @@
       }
     }
 
-    function mostrarResultados(dados) {
+    function mostrarResultados(dados, keyword) {
+      document.getElementById('orgaoNome').textContent = dados.orgao.split(' - ')[0];
       document.getElementById('data').textContent = dados.data;
-      document.getElementById('total').textContent = `${dados.total} atos`;
+      
+      let atosFiltrados = dados.atos;
+      
+      // Filtrar por palavra-chave
+      if (keyword) {
+        const keywordLower = keyword.toLowerCase();
+        atosFiltrados = dados.atos.filter(ato => 
+          ato.toLowerCase().includes(keywordLower)
+        );
+        
+        const filterInfo = document.getElementById('filterInfo');
+        filterInfo.textContent = `🔍 Filtrado por "${keyword}": ${atosFiltrados.length} de ${dados.total} atos`;
+        filterInfo.classList.add('active');
+      } else {
+        document.getElementById('filterInfo').classList.remove('active');
+      }
+      
+      document.getElementById('total').textContent = `${atosFiltrados.length} atos`;
       
       const atosList = document.getElementById('atos');
       const empty = document.getElementById('empty');
       
-      if (dados.atos.length === 0) {
+      if (atosFiltrados.length === 0) {
         atosList.style.display = 'none';
         empty.style.display = 'block';
       } else {
         atosList.style.display = 'block';
         empty.style.display = 'none';
         
-        atosList.innerHTML = dados.atos.map((ato, i) => `
-          <li class="ato-item">
-            <span class="ato-numero">${i + 1}.</span>
-            <span class="ato-texto">${ato}</span>
-          </li>
-        `).join('');
+        atosList.innerHTML = atosFiltrados.map((ato, i) => {
+          let textoAto = ato;
+          
+          // Highlight da palavra-chave
+          if (keyword) {
+            const regex = new RegExp(`(${keyword})`, 'gi');
+            textoAto = ato.replace(regex, '<span class="highlight-text">$1</span>');
+          }
+          
+          const isHighlight = keyword && ato.toLowerCase().includes(keyword.toLowerCase());
+          
+          return `
+            <li class="ato-item ${isHighlight ? 'highlight' : ''}">
+              <span class="ato-numero">${i + 1}.</span>
+              <span class="ato-texto">${textoAto}</span>
+            </li>
+          `;
+        }).join('');
       }
       
       document.getElementById('results').classList.add('active');
     }
+
+    // Enter para buscar
+    document.getElementById('keyword').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') extrair();
+    });
   </script>
 </body>
 </html>
