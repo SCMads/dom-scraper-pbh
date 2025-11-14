@@ -1,8 +1,5 @@
 const express = require('express');
-const puppeteer = require('puppeteer-extra');
-const StealthPlugin = require('puppeteer-extra-plugin-stealth');
-
-puppeteer.use(StealthPlugin());
+const puppeteer = require('puppeteer');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -10,7 +7,6 @@ const PORT = process.env.PORT || 3000;
 app.use(express.static('public'));
 app.use(express.json());
 
-// Lista completa de órgãos
 const ORGAOS = [
   'GP - Gabinete do Prefeito',
   'PGM - Procuradoria Geral do Município',
@@ -47,6 +43,7 @@ app.post('/api/scrape', async (req, res) => {
     const resultado = await scrapeOrgao(orgao || 'GP - Gabinete do Prefeito');
     res.json({ sucesso: true, dados: resultado });
   } catch (error) {
+    console.error('Erro no scrape:', error);
     res.status(500).json({ sucesso: false, erro: error.message });
   }
 });
@@ -60,54 +57,63 @@ async function scrapeOrgao(nomeOrgao) {
       '--disable-gpu',
       '--disable-dev-shm-usage',
       '--disable-software-rasterizer',
-      '--disable-extensions'
-    ],
-    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined
+      '--disable-extensions',
+      '--single-process',
+      '--no-zygote'
+    ]
   });
   
   const page = await browser.newPage();
   
-  await page.goto('https://dom-web.pbh.gov.br/', { waitUntil: 'load', timeout: 20000 });
-  await new Promise(r => setTimeout(r, 2000));
-  
-  await page.evaluate(() => {
-    document.querySelectorAll('.collapse[style*="display: none"]').forEach(el => {
-      el.style.display = 'block';
+  try {
+    await page.goto('https://dom-web.pbh.gov.br/', { 
+      waitUntil: 'load', 
+      timeout: 20000 
     });
-  });
-  await new Promise(r => setTimeout(r, 3000));
-  
-  const atos = await page.evaluate((orgao) => {
-    const texto = document.body.innerText;
-    const linhas = texto.split('\n').map(l => l.trim()).filter(l => l);
+    await new Promise(r => setTimeout(r, 2000));
     
-    let orgaoIdx = -1;
-    linhas.forEach((linha, idx) => {
-      if (linha === orgao) orgaoIdx = idx;
+    await page.evaluate(() => {
+      document.querySelectorAll('.collapse[style*="display: none"]').forEach(el => {
+        el.style.display = 'block';
+      });
     });
+    await new Promise(r => setTimeout(r, 3000));
     
-    if (orgaoIdx < 0) return [];
-    
-    const regexOrgao = /^[A-Z]{2,10}\s*[-–]\s*/;
-    let proximaIdx = linhas.length;
-    for (let i = orgaoIdx + 1; i < linhas.length; i++) {
-      if (regexOrgao.test(linhas[i])) {
-        proximaIdx = i;
-        break;
+    const atos = await page.evaluate((orgao) => {
+      const texto = document.body.innerText;
+      const linhas = texto.split('\n').map(l => l.trim()).filter(l => l);
+      
+      let orgaoIdx = -1;
+      linhas.forEach((linha, idx) => {
+        if (linha === orgao) orgaoIdx = idx;
+      });
+      
+      if (orgaoIdx < 0) return [];
+      
+      const regexOrgao = /^[A-Z]{2,10}\s*[-–]\s*/;
+      let proximaIdx = linhas.length;
+      for (let i = orgaoIdx + 1; i < linhas.length; i++) {
+        if (regexOrgao.test(linhas[i])) {
+          proximaIdx = i;
+          break;
+        }
       }
-    }
+      
+      return linhas.slice(orgaoIdx + 1, proximaIdx).filter(l => l.length > 5);
+    }, nomeOrgao);
     
-    return linhas.slice(orgaoIdx + 1, proximaIdx).filter(l => l.length > 5);
-  }, nomeOrgao);
-  
-  await browser.close();
-  
-  return {
-    orgao: nomeOrgao,
-    data: new Date().toLocaleDateString('pt-BR'),
-    total: atos.length,
-    atos: atos
-  };
+    await browser.close();
+    
+    return {
+      orgao: nomeOrgao,
+      data: new Date().toLocaleDateString('pt-BR'),
+      total: atos.length,
+      atos: atos
+    };
+  } catch (error) {
+    await browser.close();
+    throw error;
+  }
 }
 
 app.listen(PORT, () => {
