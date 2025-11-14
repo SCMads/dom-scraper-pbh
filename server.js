@@ -7,7 +7,7 @@ const path = require('path');
 puppeteer.use(StealthPlugin());
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 app.use(express.static('public'));
 app.use(express.json());
@@ -44,7 +44,15 @@ app.get('/api/orgaos', async (req, res) => {
 async function scrapeOrgao(nomeOrgao) {
   const browser = await puppeteer.launch({ 
     headless: true,
-    args: ['--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage']
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-gpu',
+      '--disable-dev-shm-usage',
+      '--disable-software-rasterizer',
+      '--disable-extensions'
+    ],
+    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined
   });
   
   const page = await browser.newPage();
