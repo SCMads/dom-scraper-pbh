@@ -4,7 +4,8 @@
   "description": "WebApp para extrair dados do DOM-PBH",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "build": "node install-chrome.js"
   },
   "dependencies": {
     "express": "^4.18.2",
